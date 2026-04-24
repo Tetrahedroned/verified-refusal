@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+
+# VR gate backups (created in-place by scripts/wrap.py)
+*.vr_backup
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Claude Code session state — never push this
+.claude/
+
+# Virtualenvs
+venv/
+.venv/
+env/
+.env

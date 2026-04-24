@@ -1,0 +1,16 @@
+# verified-refusal
+# https://github.com/Tetrahedroned/verified-refusal
+#
+# Core scripts (classify, scan, wrap, report) run on the Python standard
+# library. No packages are required for basic use.
+#
+# The dependencies below are optional. Install them if you want faster
+# pattern matching, gitignore-aware scanning, or to run the test suite.
+
+# Optional — improves classification accuracy
+regex>=2023.0.0          # richer regex engine used by classify.py when available
+pathspec>=0.11.0         # .gitignore-style path filtering in scan.py
+
+# Development and testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
