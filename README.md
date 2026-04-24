@@ -1,5 +1,9 @@
 # verified-refusal
 
+<p align="center">
+  <img src="./assets/hero.png" alt="A robotic arm is intercepted at a glowing pyramidal gate labeled 'verified-refusal: the hard gate'. Side panels show a $54,750 potential bill from a double-charge loop on the left and the VR result — $0.00 cost, 1.155 ms latency, outcome intercepted — on the right. Tagline: before it hits the wire. Before it becomes real. The adult in the room." width="900">
+</p>
+
 I noticed something while watching other people's agents do 
 things they couldn't take back.
 
