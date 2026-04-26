@@ -1,0 +1,21 @@
+- id: vr-scan
+  name: verified-refusal scan
+  description: >-
+    Fail the commit if any staged file contains an ungated irreversible
+    action (financial transaction, database mutation, message delivery,
+    infrastructure change, etc.). Catches the gate gap before it lands.
+  entry: python3 scripts/scan.py --fail-on-ungated --quiet --no-write
+  language: system
+  pass_filenames: true
+  files: '\.(py|js|jsx|mjs|cjs|ts|tsx|sh|bash)$'
+  require_serial: true
+
+- id: vr-scan-strict
+  name: verified-refusal scan (strict, whole repo)
+  description: >-
+    Fail if the repository contains any ungated irreversible action,
+    not only in the staged diff. Use as a periodic full-repo gate.
+  entry: python3 scripts/scan.py --root . --fail-on-ungated --quiet --no-write
+  language: system
+  pass_filenames: false
+  always_run: true

@@ -2,18 +2,20 @@
 name: verified_refusal
 description: Mandatory deliberation protocol for irreversible agent actions
 user-invocable: true
+metadata: {"openclaw":{"emoji":"🔒","requires":{"bins":["python3"]},"os":["linux","darwin","win32"]}}
 ---
 
-# verified_refusal
+# verified_refusal — OpenClaw overlay
 
-A behavioral contract. This is not a tutorial. Load this skill and its
-rules govern every action you take for the rest of the session.
+This is the **OpenClaw-shaped manifest** for verified-refusal. The full
+platform-neutral protocol contract lives at the repo root in
+[`SKILL.md`](../../SKILL.md); the body below is reproduced here so
+OpenClaw's loader has everything it needs in one file. If you change
+the contract, change the root file first and copy down.
 
-This file is the **platform-neutral protocol contract**. Each agent
-harness wires it in differently — see `/integrations/<your-platform>.md`
-for install, slash command bindings, and audit log paths. Some harnesses
-also need a platform-shaped manifest, kept under
-`/integrations/<your-platform>/SKILL.md`.
+The slash command bindings at the bottom use OpenClaw's `{baseDir}`
+token, which resolves to this directory; the `../../` segments reach
+the shared `scripts/` and `templates/` at repo root.
 
 ## Definition
 
@@ -77,8 +79,14 @@ it is a bug and must be fixed before the skill is published.
 - `/vr-status` — show which functions are gated vs ungated in the workspace.
 - `/vr-log`    — show recent audit log entries.
 
-How these commands are wired is platform-specific. See
-`/integrations/<your-platform>.md` for the bindings.
+OpenClaw bindings (resolved via `{baseDir}`, which points at this
+directory; the `../../` reaches repo root where the shared scripts live):
+
+- `/vr-scan`   → `python3 {baseDir}/../../scripts/scan.py --root .`
+- `/vr-wrap`   → `python3 {baseDir}/../../scripts/wrap.py --file <path> --function <name>`
+- `/vr-report` → `python3 {baseDir}/../../scripts/report.py --read --n 1`
+- `/vr-status` → `python3 {baseDir}/../../scripts/scan.py --root . --json`
+- `/vr-log`    → `python3 {baseDir}/../../scripts/report.py --read --n 50`
 
 ## Output format
 
@@ -99,7 +107,7 @@ Every VR protocol run must return exactly this structure:
   "consequence": "description of what would have happened",
   "override_used": false,
   "confirmed": false,
-  "report_path": "<path>/vr_log.jsonl"
+  "report_path": "~/.openclaw/vr_log.jsonl"
 }
 ```
 
@@ -112,11 +120,12 @@ Canonical categories (use exactly one per report):
 
 ## Audit log
 
-Default location: `~/.vr/vr_log.jsonl` (append-only JSONL). Override via
-the `VR_LOG_PATH` env var (canonical) or `VR_DATA_DIR` (sets the
-parent directory). `OPENCLAW_VR_LOG` is honored as a deprecated alias.
-Each integration documents its own default in
-`/integrations/<your-platform>.md`.
+OpenClaw default location: `~/.openclaw/vr_log.jsonl` (append-only
+JSONL). Override via:
+
+- `VR_LOG_PATH` (canonical) — full file path.
+- `VR_DATA_DIR` — base directory; log goes to `<dir>/vr_log.jsonl`.
+- `OPENCLAW_VR_LOG` — deprecated alias for `VR_LOG_PATH`; still honored.
 
 - Every gate execution writes one line.
 - Every override writes one line with `override_used: true`.
@@ -125,23 +134,8 @@ Each integration documents its own default in
 - If the file is corrupt, a recovery file is written alongside and the
   main log is not modified.
 
-Access via `python3 scripts/report.py --read --n 50` or the `/vr-log`
-slash command (binding per integration).
-
-## Files
-
-- `scripts/classify.py` — heuristic classifier. Category + confidence.
-- `scripts/scan.py` — workspace scan, coverage report.
-- `scripts/wrap.py` — in-place gate insertion (Python, JS/TS, Bash).
-- `scripts/report.py` — append-only audit log read/write/summary.
-- `templates/gate.{py,js,sh}` — drop-in gate implementations.
-- `references/irreversible.md` — what counts, including subtle cases.
-- `references/patterns.md` — copy-paste gate patterns by language.
-- `references/domains.md` — domain-specific checks and report fields.
-- `standing-order.md` — the one-page rule for a persistent system context.
-- `examples/` — runnable examples for API, file, and DB actions.
-- `integrations/` — per-platform install, slash command bindings,
-  and (where required) platform-shaped manifests.
+Access via `python3 {baseDir}/../../scripts/report.py --read --n 50` or
+the `/vr-log` slash command.
 
 ## Subtle risks that must never be classified as reversible
 
@@ -155,7 +149,7 @@ slash command (binding per integration).
 - Soft-delete APIs that cascade to hard-delete after a TTL.
 - Audit log writes that are themselves the irreversible action.
 
-See `references/irreversible.md` for the full treatment of each.
+See `../../references/irreversible.md` for the full treatment of each.
 
 ## Standing rule
 

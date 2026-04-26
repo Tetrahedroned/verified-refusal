@@ -8,7 +8,9 @@ Self-contained. Stdlib only.
 Environment:
   VERIFIED_REFUSAL_MODE=1         activate gate globally
   VERIFIED_REFUSAL_OVERRIDE=1     bypass (still logs, always)
-  OPENCLAW_VR_LOG                 optional log path override
+  VR_LOG_PATH                     full log file path override (canonical)
+  VR_DATA_DIR                     base data dir; log goes to <dir>/vr_log.jsonl (default ~/.vr)
+  OPENCLAW_VR_LOG                 deprecated alias for VR_LOG_PATH; still honored
 """
 from __future__ import annotations
 
@@ -22,7 +24,16 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-LOG_PATH = Path(os.environ.get("OPENCLAW_VR_LOG", os.path.expanduser("~/.openclaw/vr_log.jsonl")))
+
+def _resolve_log_path() -> Path:
+    explicit = os.environ.get("VR_LOG_PATH") or os.environ.get("OPENCLAW_VR_LOG")
+    if explicit:
+        return Path(os.path.expanduser(explicit))
+    base = os.environ.get("VR_DATA_DIR", "~/.vr")
+    return Path(os.path.expanduser(base)) / "vr_log.jsonl"
+
+
+LOG_PATH = _resolve_log_path()
 
 
 def _now() -> str:

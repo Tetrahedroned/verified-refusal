@@ -1,7 +1,7 @@
 # verified-refusal
 
 <p align="center">
-  <img src="./assets/hero.png" alt="A robotic arm is intercepted at a glowing pyramidal gate labeled 'verified-refusal: the hard gate'. Side panels show a $54,750 potential bill from a double-charge loop on the left and the VR result — $0.00 cost, 1.155 ms latency, outcome intercepted — on the right. Tagline: before it hits the wire. Before it becomes real. The adult in the room." width="900">
+  <img src="./assets/hero.png" alt="An RJ45 ethernet plug is suspended mid-air just before mating with its jack. A glowing decision log floats in the gap between them: 'check: irreversible_action == true ✓', 'check: idempotency_key == missing ✗', 'decision: REFUSE'. Tagline: before it hits the wire. Before it becomes real. Footer: verified-refusal — THE HARD GATE." width="900">
 </p>
 
 I noticed something while watching other people's agents do 
@@ -80,26 +80,25 @@ audit log. Always. No silent bypasses, ever.
 
 ## Install
 
+The repo is the source of truth. Clone it to the platform-neutral
+default, then wire it into your agent harness using the matching file
+in `/integrations/`.
+
 ```bash
 git clone https://github.com/Tetrahedroned/verified-refusal \
-  ~/.openclaw/workspace/skills/verified-refusal
+  ~/.vr/skills/verified-refusal
 ```
 
-Reload the skill:
+Then follow the install / reload / verify steps for your platform:
 
-```bash
-# from chat
-/new
+- [OpenClaw](./integrations/openclaw.md)
+- [Claude Code](./integrations/claude-code.md)
+- [Generic Python agent](./integrations/generic-python-agent.md)
 
-# or restart the gateway
-openclaw gateway restart
-```
-
-Verify it loaded:
-
-```bash
-openclaw skills list | grep verified-refusal
-```
+Don't see your platform? The protocol is universal. Open a PR against
+`/integrations/` — the canonical section headers (Install, Reload,
+Verify, Standing order, Audit log path, Slash commands) make new
+integrations cheap.
 
 ## Requirements
 
@@ -115,13 +114,18 @@ and what each one buys you.
 
 ## Standing order
 
-In OpenClaw, `SOUL.md` holds instructions the agent carries into every
-session. Copying the standing order into it makes the protocol permanent
-— every session, every agent, without you thinking about it.
+The protocol is anchored by a one-page rule in `standing-order.md`. Load
+it into whatever your agent harness treats as persistent system context
+— a `SOUL.md`, a `CLAUDE.md`, a system prompt file, an instructions
+preamble — and the protocol applies to every session and every agent
+without you having to remember to invoke it.
 
-```bash
-cat standing-order.md >> ~/clawd/SOUL.md
-```
+The exact loading mechanism is platform-specific. See the matching
+integration file for the command:
+
+- [OpenClaw → `~/clawd/SOUL.md`](./integrations/openclaw.md#standing-order)
+- [Claude Code → `CLAUDE.md`](./integrations/claude-code.md#standing-order)
+- [Generic Python agent → your system prompt file](./integrations/generic-python-agent.md#standing-order)
 
 ## Slash commands
 
@@ -130,6 +134,10 @@ cat standing-order.md >> ~/clawd/SOUL.md
 - `/vr-report` — show the last structured report.
 - `/vr-status` — show gated vs ungated coverage.
 - `/vr-log` — show recent audit log entries.
+
+These are the protocol-level command names. Whether they're surfaced as
+real slash commands or as direct script invocations depends on the
+agent harness — see `/integrations/<your-platform>.md` for the wiring.
 
 Example:
 
@@ -145,9 +153,42 @@ Ungated functions requiring attention:
   HIGH  src/mailer.py:118  send_bulk_email     message_delivery       (0.94)
   MED   src/storage.py:67  delete_user_files   file_destructive       (0.81)
 
-Report written to ~/.openclaw/vr_scan_20260424T014300Z.json
+Report written to ~/.vr/vr_scan_20260424T014300Z.json
 Run /vr-wrap to gate these functions.
 ```
+
+## Pre-commit hook
+
+Catch ungated irreversibles at commit time, before they land. The repo
+ships a [`.pre-commit-hooks.yaml`](./.pre-commit-hooks.yaml) manifest
+with two hooks:
+
+| Hook id           | What it does                                                  |
+|-------------------|---------------------------------------------------------------|
+| `vr-scan`         | Scans only the staged files. Fails if any are ungated.        |
+| `vr-scan-strict`  | Scans the whole repo. Use as a periodic full-tree gate.       |
+
+Add this to your project's `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/Tetrahedroned/verified-refusal
+    rev: main   # pin to a tag/SHA in real use
+    hooks:
+      - id: vr-scan
+```
+
+Then:
+
+```bash
+pre-commit install                 # one-time: install the git hook
+pre-commit run vr-scan --all-files # run on the whole repo right now
+```
+
+The hook calls `scan.py --fail-on-ungated --quiet --no-write` against
+the staged files. On a clean diff it's silent; on an ungated
+irreversible it prints the priority/file/line/category and exits 1, so
+git refuses the commit.
 
 ## What's in the box
 
@@ -164,11 +205,18 @@ Run /vr-wrap to gate these functions.
 - `references/domains.md` — domain-specific checks and report fields.
 - `examples/` — runnable examples: API, file, DB.
 - `benchmarks/` — the runner, results.json, and BENCHMARK_REPORT.md.
-- `tests/` — unit tests for classify, scan, wrap, report, and benchmarks.
+- `tests/` — unit tests for classify, scan, wrap, report, integrations,
+  and benchmarks.
+- `integrations/` — per-platform install, slash command bindings, and
+  (where required) platform-shaped manifests. See
+  [`integrations/README.md`](./integrations/README.md) for the contract.
+- `.pre-commit-hooks.yaml` — pre-commit manifest exposing `vr-scan` and
+  `vr-scan-strict` to other repos.
 
 ## The audit log
 
-- Path: `~/.openclaw/vr_log.jsonl`
+- Path: defaults per integration (see `/integrations/<your-platform>.md`).
+  Configurable via env var on the gate templates.
 - Format: JSONL, one event per line.
 - Append-only. No script deletes or modifies prior entries.
 - Every gate run writes one line. Every override writes one line.
@@ -189,10 +237,14 @@ you'll see it in `/vr-log`. That's intentional.
 
 ## Contributing
 
-This is a personal tool that turned into something worth sharing.
-If you build something on top of it, or find a category of irreversible
-action the classifier misses, open an issue or a PR.
-`references/irreversible.md` is the best place to start.
+This started as a personal tool and turned into something worth sharing.
+If you build something on top of it, find a category of irreversible
+action the classifier misses, or want to add a new platform integration,
+open an issue or a PR.
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar on each kind of
+change. Adding a new integration is the most welcome contribution; the
+contract is in [`integrations/README.md`](./integrations/README.md).
 
 ## License
 

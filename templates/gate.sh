@@ -5,9 +5,17 @@
 # irreversible action.
 #
 # Env: VERIFIED_REFUSAL_MODE=1 activates; VERIFIED_REFUSAL_OVERRIDE=1 bypasses.
+# Log path: VR_LOG_PATH (canonical) > OPENCLAW_VR_LOG (deprecated alias)
+#         > ${VR_DATA_DIR:-$HOME/.vr}/vr_log.jsonl
 
 _vr_log_path() {
-  printf '%s' "${OPENCLAW_VR_LOG:-$HOME/.openclaw/vr_log.jsonl}"
+  if [ -n "${VR_LOG_PATH:-}" ]; then
+    printf '%s' "$VR_LOG_PATH"
+  elif [ -n "${OPENCLAW_VR_LOG:-}" ]; then
+    printf '%s' "$OPENCLAW_VR_LOG"
+  else
+    printf '%s' "${VR_DATA_DIR:-$HOME/.vr}/vr_log.jsonl"
+  fi
 }
 
 _vr_append_log() {

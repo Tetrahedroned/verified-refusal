@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """verified-refusal report: append-only audit log for VR protocol runs.
 
-The log lives at ~/.openclaw/vr_log.jsonl. One JSON object per line.
+The log lives at <VR_LOG_PATH> or <VR_DATA_DIR>/vr_log.jsonl
+(default ~/.vr/vr_log.jsonl). One JSON object per line.
 Never truncated. Never edited. Corruption triggers a recovery file.
+
+Environment:
+  VR_LOG_PATH        full log file path (canonical)
+  VR_DATA_DIR        base data dir; log goes to <dir>/vr_log.jsonl (default ~/.vr)
+  OPENCLAW_VR_LOG    deprecated alias for VR_LOG_PATH; still honored
 
 CLI:
   python3 report.py --read --n 20
@@ -21,7 +27,16 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-LOG_PATH = Path(os.path.expanduser("~/.openclaw/vr_log.jsonl"))
+
+def _resolve_log_path() -> Path:
+    explicit = os.environ.get("VR_LOG_PATH") or os.environ.get("OPENCLAW_VR_LOG")
+    if explicit:
+        return Path(os.path.expanduser(explicit))
+    base = os.environ.get("VR_DATA_DIR", "~/.vr")
+    return Path(os.path.expanduser(base)) / "vr_log.jsonl"
+
+
+LOG_PATH = _resolve_log_path()
 
 
 def _log_dir() -> Path:

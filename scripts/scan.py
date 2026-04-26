@@ -2,7 +2,12 @@
 """verified-refusal scan: walk a tree, classify functions, find ungated ones.
 
 Calls into classify.py (same directory).
-Writes JSON report to ~/.openclaw/vr_scan_{ts}.json.
+Writes JSON report to <VR_DATA_DIR>/vr_scan_{ts}.json (default ~/.vr/).
+
+Environment:
+  VR_DATA_DIR        base data dir (default ~/.vr)
+  OPENCLAW_VR_LOG    deprecated alias: if set and points to a file, its parent
+                     directory is used as the data dir for backwards compat
 
 CLI:
   python3 scan.py --root .
@@ -63,15 +68,41 @@ def _priority(category: str | None, confidence: float) -> str:
     return "low"
 
 
-def scan(root_path: str, languages: list[str] | None = None) -> dict[str, Any]:
-    root = Path(root_path).resolve()
-    if not root.exists():
-        raise FileNotFoundError(f"scan root not found: {root}")
-    files = _iter_files(root, languages)
+def scan(
+    root_path: str | None = ".",
+    languages: list[str] | None = None,
+    files: list[str] | None = None,
+) -> dict[str, Any]:
+    """Scan a directory tree (root_path) or an explicit file list (files).
+
+    When `files` is provided, only those paths are classified — the
+    extension filter still applies. When omitted, walks `root_path`.
+    """
+    if files is not None:
+        exts = (
+            {e for lang in languages for e in LANG_EXT.get(lang, set())}
+            if languages else ALL_EXT
+        )
+        candidates = [Path(f).resolve() for f in files]
+        file_paths = [p for p in candidates if p.exists() and p.suffix in exts]
+        if file_paths:
+            try:
+                root = Path(os.path.commonpath([str(p) for p in file_paths])).resolve()
+                if root.is_file():
+                    root = root.parent
+            except ValueError:
+                root = Path.cwd().resolve()
+        else:
+            root = Path.cwd().resolve()
+    else:
+        root = Path(root_path or ".").resolve()
+        if not root.exists():
+            raise FileNotFoundError(f"scan root not found: {root}")
+        file_paths = _iter_files(root, languages)
     gated: list[dict[str, Any]] = []
     ungated: list[dict[str, Any]] = []
     functions_found = 0
-    for path in files:
+    for path in file_paths:
         try:
             result = _classify.classify_file(str(path))
         except Exception as exc:  # don't let one bad file kill the scan
@@ -97,7 +128,7 @@ def scan(root_path: str, languages: list[str] | None = None) -> dict[str, Any]:
     return {
         "scan_root": str(root),
         "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "files_scanned": len(files),
+        "files_scanned": len(file_paths),
         "functions_found": functions_found,
         "irreversible_total": irreversible_total,
         "gated": len(gated),
@@ -109,7 +140,15 @@ def scan(root_path: str, languages: list[str] | None = None) -> dict[str, Any]:
 
 
 def _log_dir() -> Path:
-    d = Path(os.path.expanduser("~/.openclaw"))
+    explicit = os.environ.get("VR_DATA_DIR")
+    if explicit:
+        d = Path(os.path.expanduser(explicit))
+    else:
+        alias = os.environ.get("OPENCLAW_VR_LOG")
+        if alias:
+            d = Path(os.path.expanduser(alias)).parent
+        else:
+            d = Path(os.path.expanduser("~/.vr"))
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -144,15 +183,31 @@ def _human_summary(report: dict[str, Any]) -> str:
 
 def _cli() -> int:
     ap = argparse.ArgumentParser(description="verified-refusal scanner")
-    ap.add_argument("--root", default=".", help="directory to scan")
+    ap.add_argument("--root", default=".", help="directory to scan (ignored if files are given)")
     ap.add_argument("--languages", nargs="*", choices=list(LANG_EXT.keys()))
     ap.add_argument("--json", action="store_true", help="JSON only, no human summary")
     ap.add_argument("--ungated-only", action="store_true", help="print only ungated list")
     ap.add_argument("--no-write", action="store_true", help="skip writing report file")
+    ap.add_argument(
+        "--fail-on-ungated", action="store_true",
+        help="exit 1 if any ungated irreversible action is found (pre-commit mode)",
+    )
+    ap.add_argument(
+        "-q", "--quiet", action="store_true",
+        help="suppress output unless ungated functions are found",
+    )
+    ap.add_argument(
+        "files", nargs="*",
+        help="explicit file paths to scan (overrides --root). Pre-commit passes them here.",
+    )
     args = ap.parse_args()
 
     try:
-        report = scan(args.root, args.languages)
+        report = scan(
+            root_path=args.root,
+            languages=args.languages,
+            files=args.files if args.files else None,
+        )
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -161,14 +216,21 @@ def _cli() -> int:
         report_path = _write_report(report)
         report["report_path"] = str(report_path)
 
+    has_ungated = report["ungated"] > 0
+
     if args.ungated_only:
         print(json.dumps(report["ungated_functions"], indent=2))
     elif args.json:
         print(json.dumps(report, indent=2))
+    elif args.quiet and not has_ungated:
+        pass  # silent on success
     else:
         print(_human_summary(report))
         if not args.no_write:
             print(f"  written: {report['report_path']}")
+
+    if args.fail_on_ungated and has_ungated:
+        return 1
     return 0
 
 

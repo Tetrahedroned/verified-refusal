@@ -4,6 +4,10 @@
 // Exposes both a decorator-like wrapper and an inline gate.
 //
 // Env (Node): VERIFIED_REFUSAL_MODE=1 activates, VERIFIED_REFUSAL_OVERRIDE=1 bypasses.
+// Log path (Node):
+//   VR_LOG_PATH       full log file path (canonical)
+//   VR_DATA_DIR       base data dir; log goes to <dir>/vr_log.jsonl (default ~/.vr)
+//   OPENCLAW_VR_LOG   deprecated alias for VR_LOG_PATH; still honored
 // In browser: set globalThis.VERIFIED_REFUSAL_MODE / OVERRIDE instead.
 
 const _isNode = typeof process !== 'undefined' && !!process.versions && !!process.versions.node;
@@ -23,7 +27,10 @@ function _logPath() {
   if (!_isNode) return null;
   const os = require('os');
   const path = require('path');
-  return process.env.OPENCLAW_VR_LOG || path.join(os.homedir(), '.openclaw', 'vr_log.jsonl');
+  const explicit = process.env.VR_LOG_PATH || process.env.OPENCLAW_VR_LOG;
+  if (explicit) return explicit;
+  const base = process.env.VR_DATA_DIR || path.join(os.homedir(), '.vr');
+  return path.join(base, 'vr_log.jsonl');
 }
 
 function _appendLog(entry) {

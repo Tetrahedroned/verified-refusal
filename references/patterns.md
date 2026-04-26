@@ -252,6 +252,6 @@ fn charge_customer(amount: u64) -> Result<serde_json::Value, Box<dyn std::error:
   "consequence": "charge $100 to customer",
   "override_used": false,
   "confirmed": false,
-  "report_path": "~/.openclaw/vr_log.jsonl"
+  "report_path": "~/.vr/vr_log.jsonl"
 }
 ```
