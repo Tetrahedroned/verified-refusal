@@ -111,8 +111,12 @@ def scan(
             functions_found += 1
             if not fn.get("irreversible"):
                 continue
+            try:
+                file_label = str(path.relative_to(root))  # 3.8-compatible alternative to is_relative_to
+            except ValueError:
+                file_label = str(path)
             entry = {
-                "file": str(path.relative_to(root)) if path.is_relative_to(root) else str(path),
+                "file": file_label,
                 "function": fn.get("function"),
                 "line": fn.get("line"),
                 "category": fn.get("category"),
