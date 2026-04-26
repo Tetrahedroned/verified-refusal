@@ -173,7 +173,7 @@ Add this to your project's `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Tetrahedroned/verified-refusal
-    rev: main   # pin to a tag/SHA in real use
+    rev: v1.1
     hooks:
       - id: vr-scan
 ```
